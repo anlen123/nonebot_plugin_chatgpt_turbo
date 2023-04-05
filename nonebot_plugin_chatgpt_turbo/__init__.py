@@ -3,7 +3,6 @@ import openai
 
 from nonebot import on_command
 from nonebot.params import CommandArg
-from nonebot.rule import to_me
 from nonebot.adapters.onebot.v11 import Message, MessageSegment
 from nonebot.adapters.onebot.v11 import GroupMessageEvent, PrivateMessageEvent, MessageEvent
 from .config import Config, ConfigError
@@ -30,7 +29,7 @@ session = {}
 chat_record = on_command("chat", block=False, priority=1)
 
 # 不带上下文的聊天
-chat_request = on_command("", rule=to_me(), block=False, priority=99)
+chat_request = on_command("ai", block=False, priority=99)
 
 # 清除历史记录
 clear_request = on_command("clear", block=True, priority=1)
@@ -83,12 +82,32 @@ async def _(event: MessageEvent, msg: Message = CommandArg()):
 
     await chat_request.send(MessageSegment.text("ChatGPT正在思考中......"))
 
-    try:
-        res = await get_response(content, proxy)
 
+    try:
+        res = await chat_ai_bai_piao(content)
     except Exception as error:
-        await chat_request.finish(str(error))
+        try:
+            res = await get_response(content, proxy)
+        except Exception as error:
+            await chat_request.finish(str(error))
     await chat_request.finish(MessageSegment.text(res))
+
+
+async def chat_ai_bai_piao(msg):
+    # msg = "请问你怎么看待同性恋爱"
+    url = f"http://d.qiner520.com/app/info?msg={msg}"
+
+    headers = {
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+        'Proxy-Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36'
+    }
+    async with aiohttp.ClientSession(headers=headers) as session:
+        async with session.get(url) as response:
+            response_text = await response.text()
+            return json.loads(response_text)['data']['msg']
 
 
 @clear_request.handle()
